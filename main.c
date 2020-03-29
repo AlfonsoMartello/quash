@@ -85,30 +85,7 @@ void printjoblist()
 
 void execute(char** command)
 {
-      int status;
-      pid_t pid;
-      pid = fork();
-      if (pid == 0)
-      {
-          if (strlen(command[0]) > 0)
-          {
-              if (execvp(command[0], command) < 0)
-              {
-                  fprintf(stderr, "Command execution error\n");
-                  exit(0);
-              }
-          } else {
-              if (execvp(command[0], NULL) < 0)
-              {
-                  fprintf(stderr, "Command execution error \n");
-                  exit(0);
-              }
-          }
-      }
-      else
-      {
-          waitpid(pid, &status, 0);
-      }
+    
   }
 
 
