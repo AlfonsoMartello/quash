@@ -85,8 +85,28 @@ void printjoblist()
 
 void execute(char** command)
 {
-    
+  int status;
+  pid_t pid;
+  pid = fork();
+  if(pid == 0)
+    {
+      if(strlen(command[0]) > 0)
+        {
+          if(execvp(command[0], command) < 0)
+            {
+              printf("Invalid command\n");
+            }
+          exit(0);
+        }
+
+    }
+  else
+  {
+      waitpid(pid, &status, WNOHANG);
   }
+
+
+}
 
 
 void parse(char* cmd)
