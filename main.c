@@ -105,12 +105,27 @@ void execute(char** command)
       waitpid(pid, &status, WNOHANG);
   }
 
-
 }
 
 
 void parse(char* cmd)
   {
+    char* command;
+    char* arguments[15]
+    for(int i = 0; i < 15; i++)
+      {
+        arguments[i] = NULL; //Initializing array
+      }
+    char* input = strdup(command); //returns null terminated string, need to free
+    command = strtok(input, " ");
+
+    int count = 0;
+    while (command != NULL) {
+        arguments[count] = command; //adding commands to argument array
+        command = strtok(NULL, " ");
+        count++;
+    }
+
 
   }
 
