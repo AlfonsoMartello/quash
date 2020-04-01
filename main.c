@@ -15,6 +15,8 @@
 #include <termios.h>
 #define JOB_SIZE 150
 
+void execute(char** argArray);
+
 int numjobs = 0;
 
 struct Job {
@@ -65,13 +67,6 @@ void cd(char* dir)
     setenv("PWD", dir, 1);
   }
 
-
-void quit()
-  {
-    printf("Thanks for using quash\n");
-    exit(1);
-  }
-
 void printjoblist()
   {
     printf("Current job: \n");
@@ -79,6 +74,23 @@ void printjoblist()
       {
         printf("Job ID: %d, PID: %d, Command: %s\n", joblist[i].id, joblist[i].pid, joblist[i].cmd);
       }
+  }
+
+  int manageResponse(char** argArray)
+  {
+    int quitBool = 1;
+    int exitBool = 1;
+    quitBool = strcmp(argArray[0], "quit");
+    exitBool = strcmp(argArray[0], "exit");
+    if (quitBool == 0 || exitBool == 0) //quitting quash 4.
+    {
+      return(1);
+    }
+    else
+    {
+      execute(argArray); //doing executables 1. and 2.
+    }
+    return(0);
   }
 
   void execute(char** argArray)
@@ -93,9 +105,12 @@ void printjoblist()
     }
     else if (pid == 0)
     {
-      if(execvp(argArray[0], argArray) < 0)
+      if(execvp(argArray[0], argArray) < 0) //Should automatically inherit environment of the parent 7.
       {
-        perror("Error: ");
+        char* my_var = argArray[0];
+        fprintf(stderr, "quash %s: ", my_var); //PATH error message 6.
+        perror("");
+        exit(-1);
       }
     }
     else
@@ -114,7 +129,6 @@ void printjoblist()
     charNum = getline(&inputLine, &size, stdin);
     removeNewLine = strchr(inputLine, '\n');
     if (removeNewLine) *removeNewLine = 0; //gets rid of the newline char
-    //free(removeNewLine);
     return(inputLine);
   }
 
@@ -140,22 +154,25 @@ void printjoblist()
     {
       //do nothing
     }
-    //free(inputLine);
     return(argArray);
   }
 
   int main(int argc, char** argv, char** envp)
   {
+    int quit = 0;
     char* input;
     char** parsedInput;
-    int i = 0;
-    while (i<1)
+    while (1)
     {
       input = getCommandLine();
       parsedInput = parse(input);
-      execute(parsedInput);
-      i++;
+      quit = manageResponse(parsedInput);
       free(input);
       free(parsedInput);
+      if(quit == 1)
+      {
+        printf("Thanks for using quash\n");
+        exit(1);
+      }
     }
   }
