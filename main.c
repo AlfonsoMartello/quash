@@ -16,6 +16,7 @@
 #define JOB_SIZE 150
 
 void execute(char** argArray);
+void cd(char* dir);
 
 int numjobs = 0;
 
@@ -53,20 +54,6 @@ int setEnvPath(char* str)
   }
 }
 
-void cd(char* dir)
-  {
-    if(dir == NULL)
-      {
-        chdir(getenv("HOME"));
-      }
-    else if(chdir(dir) == -1)
-      {
-        perror("No such directory found\n");
-      }
-    chdir(dir);
-    setenv("PWD", dir, 1);
-  }
-
 void printjoblist()
   {
     printf("Current job: \n");
@@ -80,17 +67,43 @@ void printjoblist()
   {
     int quitBool = 1;
     int exitBool = 1;
-    quitBool = strcmp(argArray[0], "quit");
-    exitBool = strcmp(argArray[0], "exit");
-    if (quitBool == 0 || exitBool == 0) //quitting quash 4.
+    int cdBool = 1;
+    if (argArray[0] != NULL)
     {
-      return(1);
+      quitBool = strcmp(argArray[0], "quit");
+      exitBool = strcmp(argArray[0], "exit");
+      cdBool = strcmp(argArray[0], "cd");
+      if (quitBool == 0 || exitBool == 0) //quitting quash 4.
+      {
+        return(1);
+      }
+      else if (cdBool == 0)
+      {
+        cd(argArray[1]);
+      }
+      else
+      {
+        execute(argArray); //doing executables 1. and 2.
+      }
+    }
+    return(0);
+  }
+
+  void cd(char* dir)
+  {
+    char* home = getenv("HOME");
+    if (dir == NULL) // cd changes to home directory
+    {
+      chdir(home);
+    }
+    else if(chdir(dir) == -1)
+    {
+      perror("quash: Specified directory does not exist");
     }
     else
     {
-      execute(argArray); //doing executables 1. and 2.
+      chdir(dir);
     }
-    return(0);
   }
 
   void execute(char** argArray)
