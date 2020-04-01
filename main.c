@@ -83,56 +83,80 @@ void printjoblist()
 
 
 
-void execute(char** command)
-{
-  int status;
-  pid_t pid;
-  pid = fork();
-  if(pid == 0)
+  void execute(char** argArray)
+  {
+    pid_t pid;
+    int status;
+    pid = fork();
+    if(pid < 0)
     {
-      if(strlen(command[0]) > 0)
-        {
-          if(execvp(command[0], command) < 0)
-            {
-              printf("Invalid command\n");
-            }
-          exit(0);
-        }
-
+      fprintf(stderr, "fork failed\n");
+      exit(-1);
     }
-  else
-  {
-      waitpid(pid, &status, WNOHANG);
-  }
-
-}
-
-
-void parse(char* cmd)
-  {
-    char* command;
-    char* arguments[15]
-    for(int i = 0; i < 15; i++)
+    else if (pid == 0)
+    {
+      if(execvp(argArray[0], argArray) < 0)
       {
-        arguments[i] = NULL; //Initializing array
+        perror("Error: ");
       }
-    char* input = strdup(command); //returns null terminated string, need to free
-    command = strtok(input, " ");
-
-    int count = 0;
-    while (command != NULL) {
-        arguments[count] = command; //adding commands to argument array
-        command = strtok(NULL, " ");
-        count++;
     }
-
-
+    else
+    {
+      wait(&status);
+    }
   }
 
-
-
-
-int main(int argc, char** argv, char** envp)
+  char* getCommandLine()
   {
+    char* inputLine; //Get command line input from user
+    char* removeNewLine;
+    size_t size = 0; //Initial size for all arrays
+    printf("$> ");
+    getline(&inputLine, &size, stdin);
+    removeNewLine = strchr(inputLine, '\n');
+    if (removeNewLine) *removeNewLine = 0; //gets rid of the newline char
+    //free(removeNewLine);
+    return(inputLine);
+  }
 
+  char** parse(char* inputLine)
+  {
+    char* tempString; //temperary string used for transfering from array of char to array of strings
+    char** argArray; //array of strings holding each command line argument at a seperate index
+    char* delim = " "; //The char that strtok uses to parse the inputLine
+    size_t size = 32; //Initial size for all arrays
+    int i = 0;
+    int stringLen = -1; //The number of elements in argArray
+
+    argArray = malloc(size * sizeof(char*));
+    tempString = strtok(inputLine, delim);
+    while (tempString != NULL)
+    {
+      argArray[i] = tempString;
+      i++;
+      tempString = strtok(NULL, delim);
+    }
+    argArray[i] = NULL; //now have array of strings of all command line arguments that is null terminated
+    while (argArray[++stringLen] != NULL) //get length of string array for testing purposes
+    {
+      //do nothing
+    }
+    free(inputLine);
+    return(argArray);
+  }
+
+  int main(int argc, char** argv, char** envp)
+  {
+    char* input;
+    char** parsedInput;
+    int i = 0;
+    while (1)
+    {
+      input = getCommandLine();
+      parsedInput = parse(input);
+      execute(parsedInput);
+      i++;
+    }
+    free(input);
+    free(parsedInput);
   }
