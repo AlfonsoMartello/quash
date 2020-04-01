@@ -81,8 +81,6 @@ void printjoblist()
       }
   }
 
-
-
   void execute(char** argArray)
   {
     pid_t pid;
@@ -108,11 +106,12 @@ void printjoblist()
 
   char* getCommandLine()
   {
-    char* inputLine; //Get command line input from user
+    char* inputLine = NULL; //Get command line input from user
     char* removeNewLine;
+    size_t charNum = 0;
     size_t size = 0; //Initial size for all arrays
     printf("$> ");
-    getline(&inputLine, &size, stdin);
+    charNum = getline(&inputLine, &size, stdin);
     removeNewLine = strchr(inputLine, '\n');
     if (removeNewLine) *removeNewLine = 0; //gets rid of the newline char
     //free(removeNewLine);
@@ -141,7 +140,7 @@ void printjoblist()
     {
       //do nothing
     }
-    free(inputLine);
+    //free(inputLine);
     return(argArray);
   }
 
@@ -150,13 +149,13 @@ void printjoblist()
     char* input;
     char** parsedInput;
     int i = 0;
-    while (1)
+    while (i<1)
     {
       input = getCommandLine();
       parsedInput = parse(input);
       execute(parsedInput);
       i++;
+      free(input);
+      free(parsedInput);
     }
-    free(input);
-    free(parsedInput);
   }
