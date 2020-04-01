@@ -63,16 +63,59 @@ void printjoblist()
       }
   }
 
+void sigChildHandler()
+  {
+  		pid_t	pid;
+      int status;
+
+      while((pid = waitpid(pid, &status, WNOHANG)) > 0)
+      {
+        printf("Process with PID: %d exiting\n", pid );
+
+      }
+
+
+  }
+
+void backgroundExecute(char** argArray)
+    {
+      signal(SIGCHLD, sigChildHandler);
+      pid_t pid;
+      int status;
+      pid = fork();
+      if(pid < 0)
+        {
+          printf("Fork failed\n");
+          exit(-1);
+        }
+      else if(pid == 0)
+        {
+          execvp(argArray[0], argArray);
+        }
+      else
+      {
+        printf("Process with pid: %d running in background\n", pid);
+
+      }
+
+    }
+
   int manageResponse(char** argArray)
   {
     int quitBool = 1;
     int exitBool = 1;
     int cdBool = 1;
+    int bgBool = 1;
     if (argArray[0] != NULL)
     {
       quitBool = strcmp(argArray[0], "quit");
       exitBool = strcmp(argArray[0], "exit");
       cdBool = strcmp(argArray[0], "cd");
+      if(argArray[1] != NULL)
+      {
+        bgBool = strcmp(argArray[1], "&");
+
+      }
       if (quitBool == 0 || exitBool == 0) //quitting quash 4.
       {
         return(1);
@@ -81,6 +124,10 @@ void printjoblist()
       {
         cd(argArray[1]);
       }
+      else if(bgBool == 0)
+        {
+          backgroundExecute(argArray);
+        }
       else
       {
         execute(argArray); //doing executables 1. and 2.
