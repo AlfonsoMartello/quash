@@ -17,6 +17,7 @@
 
 void execute(char** argArray);
 void cd(char* dir);
+void set(char* str, char* path, char* home);
 
 int numjobs = 0;
 
@@ -63,16 +64,18 @@ void printjoblist()
       }
   }
 
-  int manageResponse(char** argArray)
+  int manageResponse(char** argArray, char* path, char* home)
   {
     int quitBool = 1;
     int exitBool = 1;
     int cdBool = 1;
+    int setBool = 1;
     if (argArray[0] != NULL)
     {
       quitBool = strcmp(argArray[0], "quit");
       exitBool = strcmp(argArray[0], "exit");
       cdBool = strcmp(argArray[0], "cd");
+      setBool = strcmp(argArray[0], "set");
       if (quitBool == 0 || exitBool == 0) //quitting quash 4.
       {
         return(1);
@@ -81,12 +84,58 @@ void printjoblist()
       {
         cd(argArray[1]);
       }
+      else if (setBool == 0)
+      {
+        set(argArray[1], path, home);
+      }
       else
       {
         execute(argArray); //doing executables 1. and 2.
       }
     }
     return(0);
+  }
+
+  void set(char* str, char* path, char* home) //must preserve strings throughout execution for putenv to work
+  {
+    int homeBool = 1;
+    int pathBool = 1;
+    size_t size = 32;
+    if (str == NULL) //not enough arguments provided
+    {
+      fprintf(stderr, "quash: set expects 1 additional argument\n");
+    }
+    else
+    {
+      char* tempStr;
+      tempStr = malloc(size * sizeof(char));
+      strcpy(tempStr, str);
+      char* envVariable = strtok(tempStr, "="); //gets if set is working with HOME or PATH
+      homeBool = strcmp(envVariable, "HOME");
+      pathBool = strcmp(envVariable, "PATH");
+      envVariable = strtok(NULL, "="); //gets remainder of string
+      if (homeBool == 0) //setting HOME variable
+      {
+        strcpy(home, str);
+        if(putenv(home) != 0)
+        {
+          perror("Error, home not set\n");
+        }
+      }
+      else if (pathBool == 0) //setting PATH variable
+      {
+        strcpy(path, str);
+        if(putenv(path) != 0)
+        {
+          perror("Error, path not set\n");
+        }
+      }
+      else //user entered invalid input
+      {
+        fprintf(stderr, "quash: set expects argument of form HOME=/example/... or PATH=/example/bin:/newexample. Neither was provided.\n");
+      }
+      free(tempStr);
+    }
   }
 
   void cd(char* dir)
@@ -175,15 +224,21 @@ void printjoblist()
     int quit = 0;
     char* input;
     char** parsedInput;
+    char* path;
+    char* home;
+    path = malloc(32 * sizeof(char));
+    home = malloc(32 * sizeof(char));
     while (1)
     {
       input = getCommandLine();
       parsedInput = parse(input);
-      quit = manageResponse(parsedInput);
+      quit = manageResponse(parsedInput, path, home);
       free(input);
       free(parsedInput);
       if(quit == 1)
       {
+        free(path);
+        free(home);
         printf("Thanks for using quash\n");
         exit(1);
       }
