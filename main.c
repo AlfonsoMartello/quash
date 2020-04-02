@@ -15,6 +15,8 @@ void updateJobs();
 void printjoblist();
 int pipeCheck(char** argArray);
 void executePipe(char** arr1, char** arr2);
+void fileDirIn(char** argArray);
+void fileDirOut(char** argArray);
 
 int backNumJobs = 0;
 int foreNumJobs = 0;
@@ -66,7 +68,10 @@ int manageResponse(char** argArray, char* path, char* home)
   int setBool = 1;
   int backgroundBool = 0;
   int jobBool = 1;
+
   int pipeBool = 0;
+  int fileInBool = 1;
+  int fileOutBool = 1;
   if (argArray[0] != NULL)
   {
     quitBool = strcmp(argArray[0], "quit");
@@ -76,6 +81,12 @@ int manageResponse(char** argArray, char* path, char* home)
     backgroundBool = containsAmper(argArray);
     jobBool = strcmp(argArray[0], "jobs");
     pipeBool = pipeCheck(argArray); //has index of pipe in argArray
+        fileInBool = strcmp(argArray[0], "<");
+    if(argArray[1] != NULL && fileInBool != 0)
+      {
+        fileOutBool = strcmp(argArray[1], ">");
+        argArray[1] = NULL;
+      }
     if (quitBool == 0 || exitBool == 0) //quitting quash 4.
     {
       return(1);
@@ -127,6 +138,14 @@ int manageResponse(char** argArray, char* path, char* home)
     else if (backgroundBool == 1)
     {
       backgroundExecute(argArray);
+    }
+    else if (fileInBool == 0)
+    {
+      fileDirIn(argArray);
+    }
+    else if (fileOutBool == 0)
+    {
+      fileDirOut(argArray);
     }
     else
     {
@@ -366,6 +385,51 @@ void checkBackground()
     }
   }
 }
+
+
+void fileDirOut(char** argArray)
+  {
+    char* filename = argArray[2];
+    FILE* file;
+    file = freopen(filename, "w+", stdout);
+    if(file != NULL)
+      {
+        execute(argArray);
+        freopen("/dev/tty", "w", stdout);
+      }
+  }
+
+void fileDirIn(char** argArray)
+  {
+    char* cmd;
+    int i = 0;
+    char* filename = argArray[1];
+    FILE* file;
+    file = freopen(filename, "r", stdin);
+//    argArray[1] = NULL;
+    if(file != NULL)
+      {
+        while(!feof(file))
+        {
+
+          cmd = fgets(argArray[i], 20, file);
+          argArray[i] = strtok(cmd, " ");
+        //  argArray[i+1] = strtok(NULL, "\n");
+          i++;
+        }
+      }
+
+      for(i = i; i >= 0; i--)
+        {
+          argArray[i] = strtok(argArray[i],"\n");
+        }
+
+   //argArray[i-1] = strtok(argArray[i-1], "\n");
+    execute(argArray);
+    freopen("/dev/tty", "w+", stdin);
+  }
+
+
 
 void backgroundExecute(char** argArray)
 {
