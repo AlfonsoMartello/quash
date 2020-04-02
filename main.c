@@ -13,6 +13,8 @@ void backgroundExecute(char** argArray);
 void checkBackground();
 void updateJobs();
 void printjoblist();
+int pipeCheck(char** argArray);
+void executePipe(char** arr1, char** arr2);
 void fileDirIn(char** argArray);
 void fileDirOut(char** argArray);
 
@@ -66,6 +68,8 @@ int manageResponse(char** argArray, char* path, char* home)
   int setBool = 1;
   int backgroundBool = 0;
   int jobBool = 1;
+
+  int pipeBool = 0;
   int fileInBool = 1;
   int fileOutBool = 1;
   if (argArray[0] != NULL)
@@ -76,7 +80,8 @@ int manageResponse(char** argArray, char* path, char* home)
     setBool = strcmp(argArray[0], "set");
     backgroundBool = containsAmper(argArray);
     jobBool = strcmp(argArray[0], "jobs");
-    fileInBool = strcmp(argArray[0], "<");
+    pipeBool = pipeCheck(argArray); //has index of pipe in argArray
+        fileInBool = strcmp(argArray[0], "<");
     if(argArray[1] != NULL && fileInBool != 0)
       {
         fileOutBool = strcmp(argArray[1], ">");
@@ -85,6 +90,38 @@ int manageResponse(char** argArray, char* path, char* home)
     if (quitBool == 0 || exitBool == 0) //quitting quash 4.
     {
       return(1);
+    }
+    else if (pipeBool != 0)
+    {
+      char** arr1;
+      char** arr2;
+      arr1 = malloc(128 * sizeof(char*));
+      arr2 = malloc(128 * sizeof(char*));
+      int length2 = 0;
+      while (argArray[length2] != NULL)
+      {
+        length2++;
+      }
+      int i = 0;
+      while (i < pipeBool)
+      {
+        arr1[i] = argArray[i];
+        i++;
+      }
+      arr1[i] = NULL;
+      int j = 0;
+      i++;
+      while (j < length2 - pipeBool)
+      {
+        arr2[j] = argArray[i];
+        j++;
+        i++;
+      }
+      arr2[j] = NULL;
+      int k = 0;
+      executePipe(arr1, arr2);
+      free(arr1);
+      free(arr2);
     }
     else if (cdBool == 0)
     {
@@ -137,7 +174,7 @@ void set(char* str, char* path, char* home) //must preserve strings throughout e
 {
   int homeBool = 1;
   int pathBool = 1;
-  size_t size = 32;
+  size_t size = 128;
   if (str == NULL) //not enough arguments provided
   {
     fprintf(stderr, "quash: set expects 1 additional argument\n");
@@ -217,6 +254,76 @@ void execute(char** argArray)
   }
 }
 
+void executePipe(char** arr1, char** arr2)
+{
+  pid_t pid1;
+  pid_t pid2;
+  int fds[2]; //0 is read, 1 is write
+  pipe(fds);
+  pid1 = fork();
+  if (pid1 < 0)
+  {
+    fprintf(stderr, "fork failed\n");
+    exit(-1);
+  }
+  else if (pid1 == 0)//child 1
+  {
+    close(fds[0]);
+    dup2(fds[1], STDOUT_FILENO);
+    close(fds[1]);
+    if(execvp(arr1[0], arr1) < 0)
+    {
+      char* my_var = arr1[0];
+      fprintf(stderr, "quash %s: ", my_var); //PATH error message 6.
+      perror("");
+      exit(-1);
+    }
+  }
+  else //parent
+  {
+    pid2 = fork();
+    if (pid2 < 0)
+    {
+      fprintf(stderr, "fork failed\n");
+      exit(-1);
+    }
+    else if (pid2 == 0)//child 2
+    {
+      close(fds[1]);
+      dup2(fds[0], STDIN_FILENO);
+      close(fds[0]);
+      if(execvp(arr2[0], arr2) < 0)
+      {
+        char* my_var = arr2[0];
+        fprintf(stderr, "quash %s: ", my_var); //PATH error message 6.
+        perror("");
+        exit(-1);
+      }
+    }
+    else //the parent, again
+    {
+      wait(NULL); //double, as only waits for one child to exit
+      //wait(NULL);
+    }
+  }
+}
+
+int pipeCheck(char** argArray)
+{
+  int i = 0;
+  int testResult = 1;
+  while(argArray[i] != NULL)
+  {
+    testResult = strcmp(argArray[i], "|");
+    if (testResult == 0)
+    {
+      return(i); //contains pipe
+    }
+    i++;
+  }
+  return(0);
+}
+
 void updateJobs()
 {
   for (int i = 0; i < JOB_SIZE; i++)
@@ -245,10 +352,6 @@ int getJob(pid_t pid)
   int i;
   for (i = 0; i < JOB_SIZE; i++)
   {
-    //printf("Value of pid passed in: %d\n", pid);
-    //printf("Value of i in getJob: %d\n", i);
-    //printf("Value of pid in joblist: %d\n", joblist[i].pid);
-    //printf("Value of foreNum: %d\n", joblist[i].numofforeground);
     if (joblist[i].pid == (pid - joblist[i].numofforeground))
     {
       return(i);
@@ -341,7 +444,13 @@ void backgroundExecute(char** argArray)
   }
   else if(pid == 0)
   {
-    execvp(argArray[0], argArray);
+    if(execvp(argArray[0], argArray) < 0)
+    {
+      char* my_var = argArray[0];
+      fprintf(stderr, "quash %s: ", my_var); //PATH error message 6.
+      perror("");
+      exit(-1);
+    }
   }
   else
   {
@@ -388,7 +497,7 @@ char** parse(char* inputLine)
   char* tempString; //temperary string used for transfering from array of char to array of strings
   char** argArray; //array of strings holding each command line argument at a seperate index
   char* delim = " "; //The char that strtok uses to parse the inputLine
-  size_t size = 32; //Initial size for all arrays
+  size_t size = 128; //Initial size for all arrays
   int i = 0;
   int stringLen = -1; //The number of elements in argArray
 
@@ -416,8 +525,9 @@ int main(int argc, char** argv, char** envp)
   char** parsedInput;
   char* path;
   char* home;
-  path = malloc(32 * sizeof(char));
-  home = malloc(32 * sizeof(char));
+  char* pathCheck = getenv("PATH");
+  path = malloc(128 * sizeof(char));
+  home = malloc(128 * sizeof(char));
   while (1)
   {
     checkBackground();
