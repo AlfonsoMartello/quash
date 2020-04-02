@@ -18,6 +18,8 @@
 void execute(char** argArray);
 void cd(char* dir);
 void set(char* str, char* path, char* home);
+void fileDirOut(char** argArray);
+void fileDirIn(char** argArray);
 
 int numjobs = 0;
 
@@ -70,12 +72,20 @@ void printjoblist()
     int exitBool = 1;
     int cdBool = 1;
     int setBool = 1;
+    int fileInBool = 1;
+    int fileOutBool = 1;
     if (argArray[0] != NULL)
     {
       quitBool = strcmp(argArray[0], "quit");
       exitBool = strcmp(argArray[0], "exit");
       cdBool = strcmp(argArray[0], "cd");
       setBool = strcmp(argArray[0], "set");
+      fileInBool = strcmp(argArray[0], "<");
+      if(argArray[1] != NULL && fileInBool != 0)
+        {
+          fileOutBool = strcmp(argArray[1], ">");
+          argArray[1] = NULL;
+        }
       if (quitBool == 0 || exitBool == 0) //quitting quash 4.
       {
         return(1);
@@ -88,6 +98,16 @@ void printjoblist()
       {
         set(argArray[1], path, home);
       }
+
+      else if (fileInBool == 0)
+      {
+        fileDirIn(argArray);
+      }
+      else if (fileOutBool == 0)
+      {
+        fileDirOut(argArray);
+      }
+
       else
       {
         execute(argArray); //doing executables 1. and 2.
@@ -155,6 +175,8 @@ void printjoblist()
     }
   }
 
+
+
   void execute(char** argArray)
   {
     pid_t pid;
@@ -170,7 +192,7 @@ void printjoblist()
       if(execvp(argArray[0], argArray) < 0) //Should automatically inherit environment of the parent 7.
       {
         char* my_var = argArray[0];
-        fprintf(stderr, "quash %s: ", my_var); //PATH error message 6.
+        fprintf(stderr, "quash error %s: ", my_var); //PATH error message 6.
         perror("");
         exit(-1);
       }
@@ -180,6 +202,43 @@ void printjoblist()
       wait(&status);
     }
   }
+
+void fileDirOut(char** argArray)
+  {
+    char* filename = argArray[2];
+    FILE* file;
+    file = freopen(filename, "w+", stdout);
+    if(file != NULL)
+      {
+        execute(argArray);
+        freopen("/dev/tty", "w", stdout);
+      }
+  }
+
+void fileDirIn(char** argArray)
+  {
+    char* cmd;
+    int i = 0;
+    char* filename = argArray[1];
+    FILE* file;
+    file = freopen(filename, "r", stdin);
+    argArray[1] = NULL;
+    if(file != NULL)
+      {
+        while(!feof(file))
+        {
+          cmd = fgets(argArray[i], 20, file);
+          argArray[i] = strtok(cmd, " ");
+          i++;
+        }
+      }
+    argArray[i-1] = strtok(argArray[i-1], "\n");
+    execute(argArray);
+    freopen("/dev/tty", "w+", stdin);
+  }
+
+
+
 
   char* getCommandLine()
   {
