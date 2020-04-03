@@ -15,7 +15,7 @@ void updateJobs();
 void printjoblist();
 int pipeCheck(char** argArray);
 void executePipe(char** arr1, char** arr2);
-int fileDirIn(char** argArray);
+int fileDirIn(char** argArray, char* fileName);
 void fileDirOut(char** argArray);
 char** parse(char* inputLine);
 
@@ -156,7 +156,7 @@ int manageResponse(char** argArray)
     }
     else if (fileInBool == 0)
     {
-      fileInQuit = fileDirIn(argArray);
+      fileInQuit = fileDirIn(argArray, '\0');
       return(fileInQuit);
     }
     else if (fileOutBool == 0)
@@ -390,7 +390,7 @@ void fileDirOut(char** argArray)
   }
 }
 
-int fileDirIn(char** argArray)
+int fileDirIn(char** argArray, char* fileName)
 {
   int numOfElements = 0;
   int numDeleted = 0;
@@ -402,7 +402,15 @@ int fileDirIn(char** argArray)
   size_t sizeI = 0;
   size_t size = 128;
   char* delim = " ";
-  char* filename = argArray[1];
+  char* filename;
+  if (argArray[1] != NULL)
+  {
+    filename = argArray[1];
+  }
+  else
+  {
+    filename = fileName;
+  }
   FILE* file;
   int i = 0;
   int k = 0;
@@ -452,6 +460,7 @@ int fileDirIn(char** argArray)
   {
     return(1);
   }
+  return(0);
 }
 
 void backgroundExecute(char** argArray)
@@ -542,25 +551,71 @@ char** parse(char* inputLine)
 
 int main(int argc, char** argv, char** envp)
 {
-  init();
-  int quit = 0;
-  char* input;
-  char** parsedInput;
-  char* pathCheck = getenv("PATH");
-  while (1)
+  if (argc == 1)
   {
-    checkBackground();
-    printf("$> ");
-    input = getCommandLine();
-    parsedInput = parse(input);
-    quit = manageResponse(parsedInput);
-    free(input);
-    free(parsedInput);
-    if(quit == 1)
+    init();
+    int quit = 0;
+    char* input;
+    char** parsedInput;
+    while (1)
     {
-      cleanUp();
-      printf("Thanks for using quash\n");
+      checkBackground();
+      printf("$> ");
+      input = getCommandLine();
+      parsedInput = parse(input);
+      quit = manageResponse(parsedInput);
+      free(input);
+      free(parsedInput);
+      if(quit == 1)
+      {
+        cleanUp();
+        printf("Thanks for using quash\n");
+        exit(1);
+      }
+    }
+  }
+  else if (argc == 3)
+  {
+    if (strcmp(argv[1], "<") == 0)
+    {
+      init();
+      int quit = 0;
+      argv[1] = NULL;
+      quit = fileDirIn(argv, argv[2]);
+      char* input;
+      char** parsedInput;
+      if(quit == 1)
+      {
+        cleanUp();
+        printf("Thanks for using quash\n");
+        exit(1);
+      }
+      while (1)
+      {
+        checkBackground();
+        printf("$> ");
+        input = getCommandLine();
+        parsedInput = parse(input);
+        quit = manageResponse(parsedInput);
+        free(input);
+        free(parsedInput);
+        if(quit == 1)
+        {
+          cleanUp();
+          printf("Thanks for using quash\n");
+          exit(1);
+        }
+      }
+    }
+    else
+    {
+      printf("You have entered an invalid form of command line arguments. Please try again.\n");
       exit(1);
     }
+  }
+  else
+  {
+    printf("Invalid number of arguments.\n");
+    exit(-1);
   }
 }
