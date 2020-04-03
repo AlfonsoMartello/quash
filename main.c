@@ -188,12 +188,7 @@ void printjoblist()
 
 void set(char* str) //must preserve strings throughout execution for putenv to work
 {
-  char* path;
-  char* home;
-  path = getenv("PATH");
-  home = getenv("HOME");
-  //printf("Home before: %s\n", home);
-  //printf("Path before: %s\n", path);
+  char* newVar = malloc(128 * sizeof(char));
   int homeBool = 1;
   int pathBool = 1;
   size_t size = 128;
@@ -209,6 +204,7 @@ void set(char* str) //must preserve strings throughout execution for putenv to w
     char* envVariable = strtok(tempStr, "="); //gets if set is working with HOME or PATH
     homeBool = strcmp(envVariable, "HOME");
     pathBool = strcmp(envVariable, "PATH");
+    strcpy(newVar, envVariable);
     envVariable = strtok(NULL, "="); //gets remainder of string
     if (homeBool == 0) //setting HOME variable
     {
@@ -226,12 +222,12 @@ void set(char* str) //must preserve strings throughout execution for putenv to w
     }
     else //user entered invalid input
     {
-      fprintf(stderr, "quash: set expects argument of form HOME=/example/... or PATH=/example/bin:/newexample. Neither was provided.\n");
+      if(setenv(newVar, envVariable, 1) != 0)
+      {
+        perror("Error, custom variable not set\n");
+      }
     }
-    path = getenv("PATH");
-    home = getenv("HOME");
-    //printf("Home after: %s\n", home);
-    //printf("Path after: %s\n", path);
+    free(newVar);
     free(tempStr);
   }
 }
