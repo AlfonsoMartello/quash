@@ -94,10 +94,13 @@ int manageResponse(char** argArray)
     jobBool = strcmp(argArray[0], "jobs");
     pipeBool = pipeCheck(argArray); //has index of pipe in argArray
     fileInBool = strcmp(argArray[0], "<");
-    if(argArray[1] != NULL && fileInBool != 0)
+    if(argArray[1] != NULL)
     {
       fileOutBool = strcmp(argArray[1], ">");
-      argArray[1] = NULL;
+      if (fileOutBool == 0)
+      {
+        argArray[1] = NULL;
+      }
     }
     if (quitBool == 0 || exitBool == 0) //quitting quash 4.
     {
@@ -277,56 +280,28 @@ void execute(char** argArray)
 
 void executePipe(char** arr1, char** arr2)
 {
-  pid_t pid1;
-  pid_t pid2;
   int fds[2]; //0 is read, 1 is write
   pipe(fds);
-  pid1 = fork();
-  if (pid1 < 0)
+  if (fork() == 0)//child 1
   {
-    fprintf(stderr, "fork failed\n");
+    dup2(fds[1], 1);
+    close(fds[0]);
+    close(fds[1]);
+    execvp(arr1[0], arr1);
+    perror("quash: ");
     exit(-1);
   }
-  else if (pid1 == 0)//child 1
+  if (fork() == 0) //child 2
   {
+    dup2(fds[0], 0);
     close(fds[0]);
-    dup2(fds[1], STDOUT_FILENO);
     close(fds[1]);
-    if(execvp(arr1[0], arr1) < 0)
-    {
-      char* my_var = arr1[0];
-      fprintf(stderr, "quash %s: ", my_var); //PATH error message 6.
-      perror("");
-      exit(-1);
-    }
+    execvp(arr2[0], arr2);
   }
-  else //parent
-  {
-    pid2 = fork();
-    if (pid2 < 0)
-    {
-      fprintf(stderr, "fork failed\n");
-      exit(-1);
-    }
-    else if (pid2 == 0)//child 2
-    {
-      close(fds[1]);
-      dup2(fds[0], STDIN_FILENO);
-      close(fds[0]);
-      if(execvp(arr2[0], arr2) < 0)
-      {
-        char* my_var = arr2[0];
-        fprintf(stderr, "quash %s: ", my_var); //PATH error message 6.
-        perror("");
-        exit(-1);
-      }
-    }
-    else //the parent, again
-    {
-      wait(NULL); //double, as only waits for one child to exit
-      //wait(NULL);
-    }
-  }
+  close(fds[0]);
+  close(fds[1]);
+  wait(NULL);
+  wait(NULL);
 }
 
 int pipeCheck(char** argArray)
