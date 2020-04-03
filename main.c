@@ -8,15 +8,16 @@
 
 void execute(char** argArray);
 void cd(char* dir);
-void set(char* str, char* path, char* home);
+void set(char* str);
 void backgroundExecute(char** argArray);
 void checkBackground();
 void updateJobs();
 void printjoblist();
 int pipeCheck(char** argArray);
 void executePipe(char** arr1, char** arr2);
-void fileDirIn(char** argArray);
+int fileDirIn(char** argArray);
 void fileDirOut(char** argArray);
+char** parse(char* inputLine);
 
 int backNumJobs = 0;
 int foreNumJobs = 0;
@@ -43,6 +44,17 @@ void init()
   }
 }
 
+void cleanUp()
+{
+  for (int i = 0; i < JOB_SIZE; i++)
+  {
+    if (joblist[i].jobid != 0)
+    {
+      free(joblist[i].cmd);
+    }
+  }
+}
+
 int containsAmper(char** argArray)
 {
   int returnVal = 0;
@@ -60,15 +72,15 @@ int containsAmper(char** argArray)
   return(0);
 }
 
-int manageResponse(char** argArray, char* path, char* home)
+int manageResponse(char** argArray)
 {
+  int fileInQuit = 0;
   int quitBool = 1;
   int exitBool = 1;
   int cdBool = 1;
   int setBool = 1;
   int backgroundBool = 0;
   int jobBool = 1;
-
   int pipeBool = 0;
   int fileInBool = 1;
   int fileOutBool = 1;
@@ -81,12 +93,12 @@ int manageResponse(char** argArray, char* path, char* home)
     backgroundBool = containsAmper(argArray);
     jobBool = strcmp(argArray[0], "jobs");
     pipeBool = pipeCheck(argArray); //has index of pipe in argArray
-        fileInBool = strcmp(argArray[0], "<");
+    fileInBool = strcmp(argArray[0], "<");
     if(argArray[1] != NULL && fileInBool != 0)
-      {
-        fileOutBool = strcmp(argArray[1], ">");
-        argArray[1] = NULL;
-      }
+    {
+      fileOutBool = strcmp(argArray[1], ">");
+      argArray[1] = NULL;
+    }
     if (quitBool == 0 || exitBool == 0) //quitting quash 4.
     {
       return(1);
@@ -129,7 +141,7 @@ int manageResponse(char** argArray, char* path, char* home)
     }
     else if (setBool == 0)
     {
-      set(argArray[1], path, home);
+      set(argArray[1]);
     }
     else if (jobBool == 0)
     {
@@ -141,7 +153,8 @@ int manageResponse(char** argArray, char* path, char* home)
     }
     else if (fileInBool == 0)
     {
-      fileDirIn(argArray);
+      fileInQuit = fileDirIn(argArray);
+      return(fileInQuit);
     }
     else if (fileOutBool == 0)
     {
@@ -170,8 +183,14 @@ void printjoblist()
   }
 }
 
-void set(char* str, char* path, char* home) //must preserve strings throughout execution for putenv to work
+void set(char* str) //must preserve strings throughout execution for putenv to work
 {
+  char* path;
+  char* home;
+  path = getenv("PATH");
+  home = getenv("HOME");
+  //printf("Home before: %s\n", home);
+  //printf("Path before: %s\n", path);
   int homeBool = 1;
   int pathBool = 1;
   size_t size = 128;
@@ -190,16 +209,14 @@ void set(char* str, char* path, char* home) //must preserve strings throughout e
     envVariable = strtok(NULL, "="); //gets remainder of string
     if (homeBool == 0) //setting HOME variable
     {
-      strcpy(home, str);
-      if(putenv(home) != 0)
+      if(setenv("HOME", envVariable, 1) != 0)
       {
         perror("Error, home not set\n");
       }
     }
     else if (pathBool == 0) //setting PATH variable
     {
-      strcpy(path, str);
-      if(putenv(path) != 0)
+      if(setenv("PATH", envVariable, 1) != 0)
       {
         perror("Error, path not set\n");
       }
@@ -208,6 +225,10 @@ void set(char* str, char* path, char* home) //must preserve strings throughout e
     {
       fprintf(stderr, "quash: set expects argument of form HOME=/example/... or PATH=/example/bin:/newexample. Neither was provided.\n");
     }
+    path = getenv("PATH");
+    home = getenv("HOME");
+    //printf("Home after: %s\n", home);
+    //printf("Path after: %s\n", path);
     free(tempStr);
   }
 }
@@ -386,50 +407,81 @@ void checkBackground()
   }
 }
 
-
 void fileDirOut(char** argArray)
+{
+  char* filename = argArray[2];
+  FILE* file;
+  file = freopen(filename, "w+", stdout);
+  if(file != NULL)
   {
-    char* filename = argArray[2];
-    FILE* file;
-    file = freopen(filename, "w+", stdout);
-    if(file != NULL)
-      {
-        execute(argArray);
-        freopen("/dev/tty", "w", stdout);
-      }
-  }
-
-void fileDirIn(char** argArray)
-  {
-    char* cmd;
-    int i = 0;
-    char* filename = argArray[1];
-    FILE* file;
-    file = freopen(filename, "r", stdin);
-//    argArray[1] = NULL;
-    if(file != NULL)
-      {
-        while(!feof(file))
-        {
-
-          cmd = fgets(argArray[i], 20, file);
-          argArray[i] = strtok(cmd, " ");
-        //  argArray[i+1] = strtok(NULL, "\n");
-          i++;
-        }
-      }
-
-      for(i = i; i >= 0; i--)
-        {
-          argArray[i] = strtok(argArray[i],"\n");
-        }
-
-   //argArray[i-1] = strtok(argArray[i-1], "\n");
     execute(argArray);
-    freopen("/dev/tty", "w+", stdin);
+    freopen("/dev/tty", "w", stdout);
   }
+}
 
-
+int fileDirIn(char** argArray)
+{
+  int numOfElements = 0;
+  int numDeleted = 0;
+  int quitBool = 0; //0 means don't quit
+  char* cmd = NULL;
+  char* removeNewLine;
+  char** newStrArray;
+  size_t charNum = 0;
+  size_t sizeI = 0;
+  size_t size = 128;
+  char* delim = " ";
+  char* filename = argArray[1];
+  FILE* file;
+  int i = 0;
+  int k = 0;
+  newStrArray = malloc(size * sizeof(char*)); //needs to be freed
+  file = freopen(filename, "r", stdin);
+  if(file != NULL)
+  {
+    while(!feof(file))
+    {
+      charNum = getline(&cmd, &sizeI, file);
+      removeNewLine = strchr(cmd, '\n');
+      if (removeNewLine) *removeNewLine = 0; //gets rid of the newline char
+      newStrArray[i] = malloc(size * sizeof(char*)); //needs to be freed
+      strcpy(newStrArray[i], cmd);
+      i++;
+    }
+    newStrArray[i] = NULL;
+    free(newStrArray[i-1]);
+    newStrArray[i-1] = NULL;
+  }
+  char** parsedCommand;
+  int j = 0;
+  while (newStrArray[j] != NULL)
+  {
+    if (quitBool != 1)
+    {
+      checkBackground();
+      parsedCommand = parse(newStrArray[j]);
+      quitBool = manageResponse(parsedCommand);
+      j++;
+      free(parsedCommand);
+    }
+    if (quitBool == 1)
+    {
+      j++;
+    }
+  }
+  while(newStrArray[k] != NULL)
+  {
+    free(newStrArray[k]);
+    k++;
+  }
+  free(cmd);
+  free(newStrArray);
+  freopen("/dev/tty", "w+", stdin);
+  if (quitBool == 1)
+  {
+    return(1);
+  }
+}
 
 void backgroundExecute(char** argArray)
 {
@@ -523,24 +575,19 @@ int main(int argc, char** argv, char** envp)
   int quit = 0;
   char* input;
   char** parsedInput;
-  char* path;
-  char* home;
   char* pathCheck = getenv("PATH");
-  path = malloc(128 * sizeof(char));
-  home = malloc(128 * sizeof(char));
   while (1)
   {
     checkBackground();
     printf("$> ");
     input = getCommandLine();
     parsedInput = parse(input);
-    quit = manageResponse(parsedInput, path, home);
+    quit = manageResponse(parsedInput);
     free(input);
     free(parsedInput);
     if(quit == 1)
     {
-      free(path);
-      free(home);
+      cleanUp();
       printf("Thanks for using quash\n");
       exit(1);
     }
